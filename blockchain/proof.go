@@ -67,7 +67,7 @@ func NewProof(b *Block) *ProofOfWork {
 func (pow *ProofOfWork) InitData(nounce int) []byte {
 	return bytes.Join([][]byte{
 		pow.Block.PrevHash,
-		pow.Block.Data,
+		pow.Block.HashTransactions(),
 		ToHex(int64(nounce)),
 		ToHex(int64(difficult)),
 	}, []byte{})
