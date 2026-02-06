@@ -67,40 +67,51 @@ func ContinueBlockchain(address string) *Blockchain {
 
 func (chain *Blockchain) FindUnspentTransactions(address string) []Transaction {
 	var unspentTransactions []Transaction
-	spendTxOs := make(map[string][]int)
+	spentTXOs := make(map[string][]int)
+
 	iter := chain.Iterator()
+
 	for {
 		block := iter.Next()
-		for _, item := range block.Transactions {
-			txId := hex.EncodeToString(item.ID)
 
-		outputs:
-			for outIdx, out := range item.Outputs {
-				if spendTxOs[txId] != nil {
-					for _, spentOut := range spendTxOs[txId] {
+		for _, tx := range block.Transactions {
+			txID := hex.EncodeToString(tx.ID)
+
+			// 1️⃣ Marca outputs gastos (via inputs)
+			if !tx.IsCoinbase() {
+				for _, in := range tx.Inputs {
+					if in.CanUnlock(address) {
+						inputTxID := hex.EncodeToString(in.ID)
+						spentTXOs[inputTxID] = append(spentTXOs[inputTxID], in.Out)
+					}
+				}
+			}
+
+			// 2️⃣ Varre outputs e pega os NÃO gastos
+		Outputs:
+			for outIdx, out := range tx.Outputs {
+
+				// se esse output já foi gasto, ignora
+				if spentTXOs[txID] != nil {
+					for _, spentOut := range spentTXOs[txID] {
 						if spentOut == outIdx {
-							continue outputs
+							continue Outputs
 						}
 					}
 				}
-				if out.CanBeUnlock(address) {
-					unspentTransactions = append(unspentTransactions, *item)
-				}
-			}
-			if item.IsCoinbase() == false {
-				for _, in := range item.Inputs {
-					if in.CanUnlock(address) {
-						inputTransactionId := hex.EncodeToString(in.ID)
-						spendTxOs[inputTransactionId] = append(spendTxOs[inputTransactionId], in.Out)
-					}
-				}
-			}
 
+				// se é meu e não foi gasto → unspent
+				if out.CanBeUnlock(address) {
+					unspentTransactions = append(unspentTransactions, *tx)
+				}
+			}
 		}
+
 		if len(block.PrevHash) == 0 {
 			break
 		}
 	}
+
 	return unspentTransactions
 }
 
