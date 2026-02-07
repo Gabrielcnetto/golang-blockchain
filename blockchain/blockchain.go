@@ -67,7 +67,7 @@ func ContinueBlockchain(address string) *Blockchain {
 
 func (chain *Blockchain) FindUnspentTransactions(address string) []Transaction {
 	var unspentTransactions []Transaction
-	spentTXOs := make(map[string][]int)
+	spentTXOs := make(map[string][]int) // {txID: [indices de outputs gastos]}
 
 	iter := chain.Iterator()
 
@@ -77,23 +77,22 @@ func (chain *Blockchain) FindUnspentTransactions(address string) []Transaction {
 		for _, tx := range block.Transactions {
 			txID := hex.EncodeToString(tx.ID)
 
-			// 1️⃣ Marca outputs gastos (via inputs)
+			// 1️⃣ Marca outputs gastos por meus inputs
 			if !tx.IsCoinbase() {
 				for _, in := range tx.Inputs {
 					if in.CanUnlock(address) {
+						// ⚡ use o ID da transação de onde veio o output
 						inputTxID := hex.EncodeToString(in.ID)
 						spentTXOs[inputTxID] = append(spentTXOs[inputTxID], in.Out)
 					}
 				}
 			}
 
-			// 2️⃣ Varre outputs e pega os NÃO gastos
 		Outputs:
 			for outIdx, out := range tx.Outputs {
-
 				// se esse output já foi gasto, ignora
-				if spentTXOs[txID] != nil {
-					for _, spentOut := range spentTXOs[txID] {
+				if spentOutputs, ok := spentTXOs[txID]; ok {
+					for _, spentOut := range spentOutputs {
 						if spentOut == outIdx {
 							continue Outputs
 						}
